@@ -9,6 +9,7 @@ print(result)
 # functions can return any data type
 # including lists, tuples, dictionaries, and more
 
+# a function that returns a list
 def my_function():
   return ["apple", "banana", "cherry"]
 
@@ -17,7 +18,7 @@ print(fruits[0])
 print(fruits[1])
 print(fruits[2])
 
-
+# a function that returns a tuple
 def my_function():
   return (10, 20)
 
