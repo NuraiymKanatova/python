@@ -1,8 +1,9 @@
 {
     "name": "Ivan",
-    "age": 18,
+    "age": 19,
     "skills": [
         "Python",
-        "HTML"
+        "HTML",
+        "SQL"
     ]
 }
