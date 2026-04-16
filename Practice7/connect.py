@@ -5,11 +5,11 @@ def connect():
     config = load_config()
 
     conn = psycopg.connect(
-        f"host={config['host']} "
-        f"port={config['port']} "
-        f"dbname={config['dbname']} "
-        f"user={config['user']} "
-        f"password={config['password']}"
+        host=config["host"],
+        port=config["port"],
+        dbname=config["dbname"],
+        user=config["user"],
+        password=config["password"]
     )
 
     return conn

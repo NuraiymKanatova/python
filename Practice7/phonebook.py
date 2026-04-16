@@ -1,16 +1,31 @@
 from connect import connect
 import csv
+import re
 
 conn = connect()
-
 cur = conn.cursor()
+
+
+def normalize_phone(phone):
+    phone = phone.strip()
+    # убираем пробелы, дефисы, скобки
+    phone = re.sub(r"[^\d+]", "", phone)
+    # формат 8701... -> +7701...
+    if re.fullmatch(r"8\d{10}", phone):
+        return "+7" + phone[1:]
+    # формат +7701...
+    if re.fullmatch("r\+7\d{10}", phone):
+        return phone
+    
+    return None
+
 
 def create_table():
     cur.execute(""" 
     CREATE TABLE IF NOT EXISTS phonebook(
         id SERIAL PRIMARY KEY,
-        username VARCHAR(100),
-        phone VARCHAR(20)
+        username VARCHAR(100) NOT NULL,
+        phone VARCHAR(20) NOT NULL UNIQUE
     )
     """)
     conn.commit()
@@ -20,24 +35,45 @@ def create_table():
 def insert_from_csv():
     with open("contacts.csv", newline="", encoding="utf-8") as file:
         reader = csv.DictReader(file)
+        
         for row in reader:
-            cur.execute(
-                "INSERT INTO phonebook (username, phone) VALUES (%s, %s)",
-                (row["username"], row["phone"])
-            )
+            name = row["username"].strip()
+            phone = normalize_phone(row["phone"])
+
+            if phone is None:
+                print(f"Invalid phone skipped: {row['phone']}")
+                continue 
+
+            cur.execute("""
+                INSERT INTO phonebook (username, phone)
+                VALUES (%s, %s)
+                ON CONFLICT (phone)
+                DO UPDATE SET username = EXCLUDED.username
+            """, (name, phone))
     conn.commit()
     print("CSV loaded")
 
-def insert_from_console():
-    name = input("Enter name: ")
-    phone = input("Enter phone: ")
 
-    cur.execute(
-        "INSERT INTO phonebook (username, phone) VALUES (%s, %s)",
-        (name, phone)
-    )
+def insert_from_console():
+    name = input("Enter name: ").strip()
+    phone_input = input("Enter phone: (+7XXXXXXXXXX or 8XXXXXXXXXX): ").strip()
+
+    phone = normalize_phone(phone_input)
+
+    if phone is None:
+        print("Invalid phone format. Use +7XXXXXXXXXX or 8XXXXXXXXXX")
+        return
+
+    cur.execute("""
+        INSERT INTO phonebook (username, phone) 
+        VALUES (%s, %s)
+        ON CONFLICT (phone)
+        DO UPDATE SET username = EXCLUDED.username
+        """, (name, phone))
+    
     conn.commit()
-    print("Added from console")
+    print("Added or updated")
+
 
 def show_all_contacts():
     cur.execute("SELECT * FROM phonebook")
@@ -47,8 +83,9 @@ def show_all_contacts():
     for row in rows:
         print(row)
 
+
 def search_by_username():
-    name = input("Enter username to search: ")
+    name = input("Enter username to search: ").strip()
 
     cur.execute(
         "SELECT * FROM phonebook WHERE username = %s",
@@ -60,32 +97,54 @@ def search_by_username():
     for row in rows:
         print(row)
 
+
 def search_by_phone_prefix():
-    prefix = input("Enter phone prefix: ")
+    prefix_input = input("Enter phone prefix: ").strip()
+    prefix = normalize_phone(prefix_input) if len(prefix_input) >= 11 else None
+
+    if prefix is not None:
+        search_value = prefix + "%"
+    else:
+        cleaned = re.sub(r"[^\d+]", "", prefix_input)
+        if cleaned.startswith("8"):
+            cleaned = "+7" + cleaned[1:]
+        search_value = cleaned + "%"
 
     cur.execute(
         "SELECT * FROM phonebook WHERE phone LIKE %s",
-        (prefix + "%",)
+        (search_value,)
     )
     rows = cur.fetchall()
 
-    print("\nSearch result:")
+    print("\nSearch result: ")
     for row in rows:
         print(row)
 
-def update_contact():
-    name = input("Enter username to update: ")
-    new_phone = input("Enter new phone: ")
 
-    cur.execute(
-        "UPDATE phonebook SET phone = %s WHERE username = %s",
-        (new_phone, name)
-    )
-    conn.commit()
-    print("Updated")
+def update_contact():
+    name = input("Enter username to update: ").strip()
+    new_phone_input = input("Enter new phone (+7XXXXXXXXXX or 8XXXXXXXXXX): ").strip()
+
+    new_phone = normalize_phone(new_phone_input)
+
+    if new_phone is None:
+        print("Invalid phone format. Use +7XXXXXXXXXX or 8XXXXXXXXXX")
+        return
+    
+    try:
+        cur.execute(
+            "UPDATE phonebook SET phone = %s WHERE username = %s",
+            (new_phone, name)
+        )
+        conn.commit()
+        print("Updated")
+    except Exception as e:
+        conn.rollback()
+        print("Error:", e)
+
 
 def delete_by_username():
-    name = input("Enter username to delete: ")
+    name = input("Enter username to delete: ").strip()
 
     cur.execute(
         "DELETE FROM phonebook WHERE username = %s",
@@ -94,15 +153,22 @@ def delete_by_username():
     conn.commit()
     print("Deleted by username")
 
-def delete_by_phone():
-    phone = input("Enter phone to delete: ")
 
+def delete_by_phone():
+    phone_input = input("Enter phone to delete: ").strip()
+    phone = normalize_phone(phone_input)
+
+    if phone is None:
+        print("Invalid phone format")
+        return
+    
     cur.execute(
         "DELETE FROM phonebook WHERE phone = %s",
         (phone,)
     )
     conn.commit()
     print("Deleted by phone")
+
 
 def menu():
     create_table()
@@ -119,7 +185,7 @@ def menu():
         print("8. Delete by phone")
         print("0. Exit")
 
-        choice = input("Choose an option: ")
+        choice = input("Choose an option: ").strip()
 
         if choice == "1":
             insert_from_csv()

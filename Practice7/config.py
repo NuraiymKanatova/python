@@ -3,6 +3,6 @@ def load_config():
         "host": "127.0.0.1",
         "dbname": "phonebook_db",
         "user": "postgres",
-        "password": "1234",
-        "port": "5432"
+        "password": "bighitlove",
+        "port": 5432
     }
