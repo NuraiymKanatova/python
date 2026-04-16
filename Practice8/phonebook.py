@@ -9,18 +9,20 @@ def normalize_phone(phone):
     phone = phone.strip()
     # убираем пробелы, дефисы, скобки
     phone = re.sub(r"[^\d+]", "", phone)
-    # формат 8701... -> +7701...
+
+    # формат 8701XXXXXXX -> +7701XXXXXXX
     if re.fullmatch(r"8\d{10}", phone):
         return "+7" + phone[1:]
-    # формат +7701...
+
+    # формат +7701XXXXXXX
     if re.fullmatch(r"\+7\d{10}", phone):
         return phone
-    
+
     return None
 
 
 def create_table():
-    cur.execute(""" 
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS phonebook(
         id SERIAL PRIMARY KEY,
         username VARCHAR(100) NOT NULL,
@@ -29,6 +31,7 @@ def create_table():
     """)
     conn.commit()
     print("Table ready")
+
 
 def search_contacts():
     pattern = input("Enter search pattern: ").strip()
@@ -40,20 +43,23 @@ def search_contacts():
     rows = cur.fetchall()
 
     print("\nSearch result:")
-    for row in rows:
-        print(row)
+    if not rows:
+        print("No matches found")
+    else:
+        for row in rows:
+            print(row)
 
 
 def insert_or_update_user():
     name = input("Enter name: ").strip()
-    phone_input = input("Enter phone: (+7XXXXXXXX or 8XXXXXXXXXX): ").strip()
+    phone_input = input("Enter phone (+7XXXXXXXXXX or 8XXXXXXXXXX): ").strip()
 
     phone = normalize_phone(phone_input)
 
     if phone is None:
-        print("Invalid phone format. Use +7XXXXXXXX or 8XXXXXXXXXX")
+        print("Invalid phone format. Use +7XXXXXXXXXX or 8XXXXXXXXXX")
         return
-    
+
     cur.execute(
         "CALL insert_or_update_user(%s, %s)",
         (name, phone)
@@ -61,10 +67,54 @@ def insert_or_update_user():
     conn.commit()
     print("Added or updated")
 
+def insert_many_users():
+    try:
+        count = int(input("How many users do you want to add? ").strip())
+    except ValueError:
+        print("Invalid number")
+        return
+
+    if count <= 0:
+        print("Count must be greater than 0")
+        return
+
+    usernames = []
+    phones = []
+
+    for i in range(count):
+        print(f"\nUser #{i + 1}")
+        name = input("Enter name: ").strip()
+        phone_input = input("Enter phone (+7XXXXXXXXXX or 8XXXXXXXXXX): ").strip()
+
+        normalized_phone = normalize_phone(phone_input)
+
+        usernames.append(name)
+        phones.append(normalized_phone if normalized_phone is not None else phone_input.strip())
+
+    cur.execute(
+        "SELECT insert_many_users(%s::TEXT[], %s::TEXT[])",
+        (usernames, phones)
+    )
+
+    result = cur.fetchone()
+    conn.commit()
+
+    invalid_data = result[0] if result and result[0] else ""
+
+    print("\nBulk insert finished")
+    if invalid_data:
+        print("Invalid data found:")
+        print(invalid_data)
+    else:
+        print("All users inserted/updated successfully")
 
 def show_paginated_contacts():
-    limit = int(input("Enter limit: ").strip())
-    offset = int(input("Enter offset: ").strip())
+    try:
+        limit = int(input("Enter limit: ").strip())
+        offset = int(input("Enter offset: ").strip())
+    except ValueError:
+        print("Limit and offset must be integers")
+        return
 
     cur.execute(
         "SELECT * FROM get_contacts_paginated(%s, %s)",
@@ -73,8 +123,11 @@ def show_paginated_contacts():
     rows = cur.fetchall()
 
     print("\nPaginated contacts:")
-    for row in rows:
-        print(row)
+    if not rows:
+        print("No contacts found")
+    else:
+        for _, username, phone in rows:
+            print(username, phone)
 
 
 def delete_contact():
@@ -85,7 +138,7 @@ def delete_contact():
         value = normalized
 
     cur.execute(
-        "CALL delete_contact_by_value(%s::VARCHAR)",
+        "CALL delete_contact_by_value(%s)",
         (value,)
     )
     conn.commit()
@@ -98,9 +151,10 @@ def menu():
     while True:
         print("\n--- PHONEBOOK MENU ---")
         print("1. Search contacts by pattern")
-        print("2. Insert or update user")
-        print("3. Show paginated contacts")
-        print("4. Delete contact by username or phone")
+        print("2. Insert or update one user")
+        print("3. Insert many users")
+        print("4. Show paginated contacts")
+        print("5. Delete contact by username or phone")
         print("0. Exit")
 
         choice = input("Choose an option: ").strip()
@@ -110,13 +164,16 @@ def menu():
         elif choice == "2":
             insert_or_update_user()
         elif choice == "3":
-            show_paginated_contacts()
+            insert_many_users()
         elif choice == "4":
+            show_paginated_contacts()
+        elif choice == "5":
             delete_contact()
         elif choice == "0":
             break
         else:
             print("Invalid choice")
+
 
 menu()
 
