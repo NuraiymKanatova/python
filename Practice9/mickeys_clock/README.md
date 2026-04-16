@@ -1,14 +1,17 @@
-# Mickey Clock
+# Mickey's Clock Application
 
 ## Description
-This program displays a Micky Mouse style clock using hand graphics.
-The right hand shows minutes, the left hand shows seconds.
+This project is a Mickey Mouse style clock application made with Pygame.
+
+The clock:
+- displays the current system time
+- uses Micky Mouse hands as clock hands
+- shows minutes and seconds
+- updates in real time
 
 ## Features
-- Real-time system clock synchronization
-- Smooth hand rotation
-- Pygame graphics
-
-## Run
-pip install pygame
-python main.py
+- Real-time synchronization with system clock 
+- Minute hand rotation
+- Second hand rotation
+- Mickey hand image used as clock hands
+- Clock face with marks and numbers
