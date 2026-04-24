@@ -108,11 +108,15 @@ class Coin(pygame.sprite.Sprite):
         self.reset_position()
 
     def reset_position(self):
-        # Устанавливаем монету в случайную позицию на дороге выше экрана        
-        self.rect.center = (
-            random.randint(road_left + 25, road_right - 25), 
-            20
-        )
+        while True:
+            x = random.randint(road_left + 25, road_right - 25)
+            y = -30
+
+            self.rect.center = (x, y)
+
+            # если НЕ пересекается с врагом — ок
+            if not pygame.sprite.spritecollideany(self, enemies, pygame.sprite.collide_mask):
+                break
 
     def move(self):
         # монета движется вниз
